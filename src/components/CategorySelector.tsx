@@ -85,15 +85,6 @@ export default function CategorySelector({ onImageSelected, selectedImageUrl, lo
         })}
       </div>
 
-      <button
-        onClick={() => fileRef.current?.click()}
-        disabled={loading}
-        className="w-full p-2.5 rounded-xl border-2 border-dashed border-border bg-secondary/20 hover:border-primary/40 transition-all text-center disabled:opacity-50"
-      >
-        <span className="text-lg">📤</span>
-        <span className="text-xs font-semibold text-foreground ml-2">Upload Your Own Image</span>
-      </button>
-      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
     </div>
   );
 }
