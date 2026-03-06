@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { CATEGORY_IMAGES } from "@/data/categoryImages";
 
 export interface Category {
   id: string;
@@ -7,57 +8,11 @@ export interface Category {
   emoji: string;
 }
 
-const CATEGORY_IMAGES: Record<string, string[]> = {
-  face: [
-    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=300&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=300&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&h=300&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=300&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=300&fit=crop&crop=face",
-  ],
-  animal: [
-    "https://images.unsplash.com/photo-1474511320723-9a56873571b7?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1564349683136-77e08dba1ef7?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1437622368342-7a3d73a34c8f?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1425082661705-1834bfd09dca?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1504006833117-8886a355efbf?w=400&h=300&fit=crop",
-  ],
-  landscape: [
-    "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=400&h=300&fit=crop",
-  ],
-  fruit: [
-    "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1568702846914-96b305d2uj68?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1587132137056-bfbf0166836e?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1528825871115-3581a5e31ab3?w=400&h=300&fit=crop",
-  ],
-  emotion: [
-    "https://images.unsplash.com/photo-1492681290082-e932832941e6?w=400&h=300&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=300&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1541364983171-a8ba01e95cfc?w=400&h=300&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1508474722893-c3ccb8918d39?w=400&h=300&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1504439468489-c8920d796a29?w=400&h=300&fit=crop&crop=face",
-  ],
-  text: [
-    "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1471107340929-a87cd0f5b5f3?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1516414447565-b14be0adf13e?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1473186505569-9c61870c11f9?w=400&h=300&fit=crop",
-  ],
-};
-
 const CATEGORIES: Category[] = [
   { id: "face", label: "Faces", emoji: "👤" },
   { id: "animal", label: "Animals", emoji: "🐾" },
   { id: "landscape", label: "Landscapes", emoji: "🌄" },
   { id: "fruit", label: "Fruits", emoji: "🍎" },
-  { id: "emotion", label: "Emotions", emoji: "😊" },
   { id: "text", label: "Text", emoji: "📝" },
 ];
 
@@ -151,7 +106,7 @@ export default function CategorySelector({ onImageSelected, selectedCategory, lo
               {browsingCat?.emoji} {browsingCat?.label} — Pick an image:
             </p>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2 max-h-[420px] overflow-y-auto pr-1">
               {images.map((url, i) => (
                 <motion.button
                   key={i}
@@ -167,7 +122,7 @@ export default function CategorySelector({ onImageSelected, selectedCategory, lo
                   <img
                     src={url}
                     alt={`${browsingCat?.label} sample ${i + 1}`}
-                    className="w-full h-28 object-cover"
+                    className="w-full h-20 object-cover"
                     loading="lazy"
                   />
                 </motion.button>
