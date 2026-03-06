@@ -24,7 +24,6 @@ interface Props {
   featureNames: string[];
   outputLabels: string[];
   categoryId: string | null;
-  imageLabel?: string;
 }
 
 const HIDDEN = [8, 6];
@@ -65,12 +64,12 @@ const CATEGORY_OUTPUT_MAP: Record<string, number> = {
   face: 0, animal: 1, landscape: 2, fruit: 3, custom: -1,
 };
 
-export default function NeuralNetworkVisualization({ inputActivations, triggerForward, featureNames, outputLabels, categoryId, imageLabel }: Props) {
+export default function NeuralNetworkVisualization({ inputActivations, triggerForward, featureNames, outputLabels, categoryId }: Props) {
   const [network, setNetwork] = useState(() => buildNetwork(featureNames.length, outputLabels.length));
   const [currentLayer, setCurrentLayer] = useState(-1);
   const [propagating, setPropagating] = useState(false);
   const [resultText, setResultText] = useState<string | null>(null);
-  const [detailLabel, setDetailLabel] = useState<string | null>(null);
+  
   const prevTrigger = useRef(0);
 
   const LAYER_LABELS = ["Input\n(features)", "Hidden 1", "Hidden 2", "Output\n(class)"];
@@ -86,7 +85,7 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
     setPropagating(true);
     setCurrentLayer(0);
     setResultText(null);
-    setDetailLabel(null);
+    
 
     setNetwork(prev => ({
       ...prev,
@@ -127,13 +126,6 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
             setResultText(`Classified as ${winnerLabel} — ${confidence}% confidence`);
           }
 
-          // Show specific name popup for animals/fruits
-          if (imageLabel && (categoryId === "animal" || categoryId === "fruit")) {
-            setTimeout(() => {
-              const categoryName = categoryId === "animal" ? "Animal" : "Fruit";
-              setDetailLabel(`${categoryName}: ${imageLabel}`);
-            }, 600);
-          }
 
           return { ...prev, neurons: updatedNeurons };
         });
@@ -209,17 +201,6 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
         </motion.div>
       )}
 
-      {/* Detail label popup for animals/fruits */}
-      {detailLabel && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8, y: -5 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          className="mb-3 p-3 rounded-xl border-2 border-primary bg-primary/10 text-center"
-        >
-          <p className="text-lg font-bold text-primary">✨ {detailLabel}</p>
-        </motion.div>
-      )}
 
       <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden min-h-0 relative">
         <svg width="100%" height="100%" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="xMidYMid meet">
