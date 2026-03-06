@@ -10,7 +10,7 @@ const OUTPUT_LABELS = ["Face 👤", "Animal 🐾", "Landscape 🌄", "Fruit 🍎
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageLabel, setImageLabel] = useState<string | undefined>(undefined);
+  
   const [featureActivations, setFeatureActivations] = useState<number[]>([0, 0, 0, 0, 0, 0]);
   const [triggerForward, setTriggerForward] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -18,17 +18,16 @@ const Index = () => {
   const handleReset = useCallback(() => {
     setSelectedCategory(null);
     setImageUrl(null);
-    setImageLabel(undefined);
+    
     setFeatureActivations([0, 0, 0, 0, 0, 0]);
     setTriggerForward(0);
   }, []);
 
-  const handleImageSelected = useCallback((url: string, categoryId: string, label?: string) => {
+  const handleImageSelected = useCallback((url: string, categoryId: string) => {
     setLoading(true);
     setFeatureActivations([0, 0, 0, 0, 0, 0]);
     setSelectedCategory(categoryId);
     setImageUrl(url);
-    setImageLabel(label);
     setTimeout(() => setLoading(false), 300);
   }, []);
 
@@ -79,7 +78,7 @@ const Index = () => {
         <div className="bg-card/50 rounded-xl border border-border p-4">
           <CategorySelector
             onImageSelected={handleImageSelected}
-            selectedCategory={selectedCategory}
+            selectedImageUrl={imageUrl}
             loading={loading}
           />
           {imageUrl && selectedCategory && (
@@ -98,7 +97,6 @@ const Index = () => {
             featureNames={FEATURE_NAMES}
             outputLabels={OUTPUT_LABELS}
             categoryId={selectedCategory}
-            imageLabel={imageLabel}
           />
         </div>
       </div>
