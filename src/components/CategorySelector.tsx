@@ -73,9 +73,8 @@ export default function CategorySelector({ onImageSelected, selectedCategory, lo
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleCategory = (cat: Category) => {
-    // Load random image from picsum (reliable, no API key needed)
-    const seed = `${cat.id}-${Date.now()}`;
-    const url = `https://picsum.photos/seed/${seed}/400/300`;
+    const images = CATEGORY_IMAGES[cat.id] || [];
+    const url = images[Math.floor(Math.random() * images.length)];
     onImageSelected(url, cat.id);
   };
 
