@@ -54,7 +54,7 @@ export default function CategorySelector({ onImageSelected, selectedImageUrl, lo
     <div>
       <h2 className="text-lg font-bold text-gradient mb-2">📷 Pick an Image</h2>
       <p className="text-[11px] text-muted-foreground mb-3">
-        Select any image and the neural network will classify it as Face, Animal, Landscape, or Fruit.
+        Select any image and the neural network will classify it as Face, Animal, Landscape, or Food.
       </p>
 
       <div className="grid grid-cols-4 gap-1.5 max-h-[380px] overflow-y-auto pr-1 mb-3">
@@ -80,9 +80,6 @@ export default function CategorySelector({ onImageSelected, selectedImageUrl, lo
                 loading="lazy"
                 onError={() => handleImageError(img.url)}
               />
-              <span className="block text-[8px] text-muted-foreground text-center py-0.5 bg-card/80 truncate">
-                {img.categoryId}
-              </span>
             </motion.button>
           );
         })}
