@@ -61,7 +61,7 @@ function buildNetwork(inputCount: number, outputCount: number) {
 
 // Map category to which output neuron should "win"
 const CATEGORY_OUTPUT_MAP: Record<string, number> = {
-  face: 0, animal: 1, landscape: 2, fruit: 3, emotion: 4, text: 5, custom: -1,
+  face: 0, animal: 1, landscape: 2, fruit: 3, text: 4, custom: -1,
 };
 
 export default function NeuralNetworkVisualization({ inputActivations, triggerForward, featureNames, outputLabels, categoryId }: Props) {
