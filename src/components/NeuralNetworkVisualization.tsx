@@ -24,7 +24,6 @@ interface Props {
   featureNames: string[];
   outputLabels: string[];
   categoryId: string | null;
-  imageLabel?: string;
 }
 
 const HIDDEN = [8, 6];
@@ -65,7 +64,7 @@ const CATEGORY_OUTPUT_MAP: Record<string, number> = {
   face: 0, animal: 1, landscape: 2, fruit: 3, custom: -1,
 };
 
-export default function NeuralNetworkVisualization({ inputActivations, triggerForward, featureNames, outputLabels, categoryId, imageLabel }: Props) {
+export default function NeuralNetworkVisualization({ inputActivations, triggerForward, featureNames, outputLabels, categoryId }: Props) {
   const [network, setNetwork] = useState(() => buildNetwork(featureNames.length, outputLabels.length));
   const [currentLayer, setCurrentLayer] = useState(-1);
   const [propagating, setPropagating] = useState(false);
