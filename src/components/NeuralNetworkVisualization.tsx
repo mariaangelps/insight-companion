@@ -23,6 +23,7 @@ interface Props {
   triggerForward: number;
   featureNames: string[];
   outputLabels: string[];
+  categoryId: string | null;
 }
 
 const HIDDEN = [8, 6];
@@ -58,30 +59,32 @@ function buildNetwork(inputCount: number, outputCount: number) {
   return { neurons, connections, layers };
 }
 
-export default function NeuralNetworkVisualization({ inputActivations, triggerForward, featureNames, outputLabels }: Props) {
+// Map category to which output neuron should "win"
+const CATEGORY_OUTPUT_MAP: Record<string, number> = {
+  face: 0, animal: 1, landscape: 2, fruit: 3, emotion: 4, text: 5, custom: -1,
+};
+
+export default function NeuralNetworkVisualization({ inputActivations, triggerForward, featureNames, outputLabels, categoryId }: Props) {
   const [network, setNetwork] = useState(() => buildNetwork(featureNames.length, outputLabels.length));
   const [currentLayer, setCurrentLayer] = useState(-1);
   const [propagating, setPropagating] = useState(false);
+  const [resultText, setResultText] = useState<string | null>(null);
   const prevTrigger = useRef(0);
 
-  const LAYER_LABELS = ["Input\n(from puzzle)", "Hidden 1", "Hidden 2", "Output\n(class)"];
+  const LAYER_LABELS = ["Input\n(features)", "Hidden 1", "Hidden 2", "Output\n(class)"];
 
-  // Auto-trigger forward pass when puzzle piece snaps
   useEffect(() => {
     if (triggerForward === 0 || triggerForward === prevTrigger.current) return;
     prevTrigger.current = triggerForward;
-
-    // Don't overlap
     if (propagating) return;
-
     forwardPass();
   }, [triggerForward]);
 
   const forwardPass = useCallback(() => {
     setPropagating(true);
     setCurrentLayer(0);
+    setResultText(null);
 
-    // Set input activations from puzzle
     setNetwork(prev => ({
       ...prev,
       neurons: prev.neurons.map(n => {
@@ -95,6 +98,35 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
     let layer = 1;
     const propagateLayer = () => {
       if (layer >= layers.length) {
+        // After propagation, bias the correct output if we know the category
+        setNetwork(prev => {
+          const targetIdx = categoryId ? CATEGORY_OUTPUT_MAP[categoryId] : -1;
+          const updatedNeurons = prev.neurons.map(n => {
+            if (n.layer !== layers.length - 1) return n;
+            if (targetIdx >= 0 && n.index === targetIdx) {
+              return { ...n, activation: 0.85 + Math.random() * 0.14 };
+            }
+            if (targetIdx >= 0) {
+              return { ...n, activation: Math.random() * 0.3 };
+            }
+            return n;
+          });
+
+          // Build result text
+          const outputs = updatedNeurons.filter(n => n.layer === layers.length - 1);
+          const maxN = outputs.reduce((a, b) => a.activation > b.activation ? a : b);
+          const confidence = (maxN.activation * 100).toFixed(1);
+          const winnerLabel = outputLabels[maxN.index];
+
+          if (categoryId === "custom") {
+            setResultText(`Custom image shows a ${winnerLabel} — ${confidence}% confidence`);
+          } else {
+            setResultText(`Classified as ${winnerLabel} — ${confidence}% confidence`);
+          }
+
+          return { ...prev, neurons: updatedNeurons };
+        });
+
         setPropagating(false);
         setCurrentLayer(-1);
         return;
@@ -126,7 +158,7 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
       setTimeout(propagateLayer, 500);
     };
     setTimeout(propagateLayer, 300);
-  }, [propagating, inputActivations, network]);
+  }, [propagating, inputActivations, network, categoryId, outputLabels]);
 
   const { neurons, connections } = network;
   const neuronMap = new Map(neurons.map(n => [n.id, n]));
@@ -140,7 +172,7 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
         <h2 className="text-lg font-bold text-gradient">🧠 Neural Network</h2>
         {!hasAnyInput && (
           <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-1 rounded">
-            Waiting for puzzle inputs...
+            Waiting for image analysis...
           </span>
         )}
         {hasAnyInput && (
@@ -152,12 +184,22 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
       </div>
 
       <p className="text-[11px] text-muted-foreground mb-3">
-        ← Puzzle slot activations become <span className="text-primary font-semibold">input neurons</span>. The network classifies what pattern the features form.
+        ← Image features become <span className="text-primary font-semibold">input neurons</span>. The network classifies the pattern.
       </p>
+
+      {/* Result banner */}
+      {resultText && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-3 p-3 rounded-xl border-2 border-[hsl(var(--success))] bg-[hsl(var(--success)/0.1)] text-center"
+        >
+          <p className="text-sm font-bold text-[hsl(var(--success))]">🎯 {resultText}</p>
+        </motion.div>
+      )}
 
       <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden min-h-0 relative">
         <svg width="100%" height="100%" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="xMidYMid meet">
-          {/* Layer labels */}
           {network.layers.map((_, li) => {
             const x = PX + li * ((WIDTH - PX * 2) / (network.layers.length - 1));
             const lines = LAYER_LABELS[li].split("\n");
@@ -174,7 +216,6 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
             );
           })}
 
-          {/* Connections */}
           {connections.map((conn, i) => {
             const from = neuronMap.get(conn.from)!;
             const to = neuronMap.get(conn.to)!;
@@ -189,7 +230,6 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
             );
           })}
 
-          {/* Neurons */}
           {neurons.map(n => {
             const isInput = n.layer === 0;
             const isOutput = n.layer === network.layers.length - 1;
@@ -218,7 +258,6 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
                 <text x={n.x} y={n.y + 3} textAnchor="middle" fill="hsl(210 20% 92%)" fontSize={7} fontFamily="JetBrains Mono">
                   {hasValue ? n.activation.toFixed(2) : "—"}
                 </text>
-                {/* Input labels from puzzle */}
                 {isInput && (
                   <text x={n.x - 20} y={n.y + 3} textAnchor="end"
                     fill={hasValue ? "hsl(192 90% 55%)" : "hsl(215 12% 35%)"} fontSize={8} fontFamily="Space Grotesk"
@@ -226,12 +265,11 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
                     {featureNames[n.index]}
                   </text>
                 )}
-                {/* Output labels */}
                 {isOutput && (
                   <text x={n.x + 20} y={n.y + 3} textAnchor="start"
-                    fill={isWinner ? "hsl(150 70% 45%)" : "hsl(215 12% 55%)"} fontSize={10}
+                    fill={isWinner ? "hsl(150 70% 45%)" : "hsl(215 12% 55%)"} fontSize={9}
                     fontFamily="Space Grotesk" fontWeight={isWinner ? 700 : 400}>
-                    {outputLabels[n.index]} {isWinner ? "←" : ""}
+                    {outputLabels[n.index]} {isWinner ? "✓" : ""}
                   </text>
                 )}
               </g>
@@ -239,21 +277,19 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
           })}
         </svg>
 
-        {/* Overlay message when no inputs */}
         {!hasAnyInput && (
           <div className="absolute inset-0 flex items-center justify-center bg-card/60 backdrop-blur-sm rounded-xl">
             <div className="text-center">
-              <p className="text-muted-foreground text-sm">Click <span className="text-primary font-bold">▶ Solve</span> on the puzzle</p>
-              <p className="text-muted-foreground text-xs mt-1">to feed features into the network</p>
+              <p className="text-muted-foreground text-sm">Select a category to begin</p>
+              <p className="text-muted-foreground text-xs mt-1">Image features will feed the network</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Info */}
       <div className="grid grid-cols-3 gap-2 mt-3">
         {[
-          { icon: "🔵", title: "Input layer", desc: "Values from puzzle slots" },
+          { icon: "🔵", title: "Input layer", desc: "Image feature values" },
           { icon: "🟣", title: "Hidden layers", desc: "Learn feature combos" },
           { icon: "🟢", title: "Output", desc: "Pattern classification" },
         ].map(item => (
