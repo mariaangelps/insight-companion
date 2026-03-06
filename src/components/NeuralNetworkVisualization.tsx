@@ -123,10 +123,16 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
 
           if (categoryId === "custom") {
             setResultText(`Custom image shows a ${winnerLabel} — ${confidence}% confidence`);
-          } else if (imageLabel) {
-            setResultText(`Classified as ${winnerLabel} — ${imageLabel} — ${confidence}% confidence`);
           } else {
             setResultText(`Classified as ${winnerLabel} — ${confidence}% confidence`);
+          }
+
+          // Show specific name popup for animals/fruits
+          if (imageLabel && (categoryId === "animal" || categoryId === "fruit")) {
+            setTimeout(() => {
+              const categoryName = categoryId === "animal" ? "Animal" : "Fruit";
+              setDetailLabel(`${categoryName}: ${imageLabel}`);
+            }, 600);
           }
 
           return { ...prev, neurons: updatedNeurons };
