@@ -80,6 +80,9 @@ export default function CategorySelector({ onImageSelected, selectedImageUrl, lo
                 loading="lazy"
                 onError={() => handleImageError(img.url)}
               />
+              <span className="block text-[8px] text-muted-foreground text-center py-0.5 bg-card/80 truncate">
+                {img.categoryId}
+              </span>
             </motion.button>
           );
         })}
