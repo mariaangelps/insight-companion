@@ -126,13 +126,6 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
             setResultText(`Classified as ${winnerLabel} — ${confidence}% confidence`);
           }
 
-          // Show specific name popup for animals/fruits
-          if (imageLabel && (categoryId === "animal" || categoryId === "fruit")) {
-            setTimeout(() => {
-              const categoryName = categoryId === "animal" ? "Animal" : "Fruit";
-              setDetailLabel(`${categoryName}: ${imageLabel}`);
-            }, 600);
-          }
 
           return { ...prev, neurons: updatedNeurons };
         });
