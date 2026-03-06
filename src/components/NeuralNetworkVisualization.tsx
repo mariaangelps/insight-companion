@@ -86,6 +86,7 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
     setPropagating(true);
     setCurrentLayer(0);
     setResultText(null);
+    setDetailLabel(null);
 
     setNetwork(prev => ({
       ...prev,
