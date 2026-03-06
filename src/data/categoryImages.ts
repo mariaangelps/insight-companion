@@ -36,7 +36,7 @@ export const CATEGORY_IMAGES: Record<string, CategoryImage[]> = {
     { url: U("1564349683136-77e08dba1ef7"), label: "Giraffe" },
     { url: U("1437622368342-7a3d73a34c8f"), label: "Sea Turtle" },
     { url: U("1425082661705-1834bfd09dca"), label: "Hamster" },
-    { url: U("1504006833117-8886a355efbf"), label: "Dog" },
+    { url: U("1530281700549-e82e7bf110d6"), label: "Golden Retriever" },
     { url: U("1456926631375-92c8ce872def"), label: "Zebra" },
     { url: U("1474314170901-f351b68f544f"), label: "Squirrel" },
     { url: U("1503256207526-0d5d80fa2f47"), label: "Cow" },
