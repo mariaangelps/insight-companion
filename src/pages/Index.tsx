@@ -14,6 +14,13 @@ const Index = () => {
   const [triggerForward, setTriggerForward] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  const handleReset = useCallback(() => {
+    setSelectedCategory(null);
+    setImageUrl(null);
+    setFeatureActivations([0, 0, 0, 0, 0, 0]);
+    setTriggerForward(0);
+  }, []);
+
   const handleImageSelected = useCallback((url: string, categoryId: string) => {
     setLoading(true);
     setFeatureActivations([0, 0, 0, 0, 0, 0]);
@@ -77,6 +84,7 @@ const Index = () => {
               imageUrl={imageUrl}
               categoryId={selectedCategory}
               onFeaturesExtracted={handleFeaturesExtracted}
+              onReset={handleReset}
             />
           )}
         </div>
