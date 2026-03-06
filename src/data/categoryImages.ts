@@ -68,8 +68,8 @@ export const CATEGORY_IMAGES: Record<string, CategoryImage[]> = {
     { url: "https://images.unsplash.com/photo-1504567961542-e24d9439a724?w=400&h=300&fit=crop" },
     { url: "https://images.unsplash.com/photo-1482192505345-5655af888cc4?w=400&h=300&fit=crop" },
   ],
-  fruit: [
-    // Clear fruit photos — only fruit, NO people
+  food: [
+    // Clear food/fruit photos — only food, NO people
     { url: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop" },
     { url: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=400&h=300&fit=crop" },
     { url: "https://images.unsplash.com/photo-1502741224143-90386d7f8c82?w=400&h=300&fit=crop" },
