@@ -16,7 +16,7 @@ interface Connection {
   to: string;
   weight: number;
   active: boolean;
-  signalProgress: number; // 0-1 for traveling signal animation
+  drawn: boolean; // whether this connection has been "drawn" yet
 }
 
 interface Props {
@@ -54,7 +54,7 @@ function buildNetwork(inputCount: number, outputCount: number) {
         for (let pi = 0; pi < layers[li - 1]; pi++) {
           connections.push({
             from: `${li - 1}-${pi}`, to: `${li}-${ni}`,
-            weight: Math.random() * 2 - 1, active: false, signalProgress: 0,
+            weight: Math.random() * 2 - 1, active: false, drawn: false,
           });
         }
       }
@@ -72,12 +72,12 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
   const [currentLayer, setCurrentLayer] = useState(-1);
   const [propagating, setPropagating] = useState(false);
   const [resultText, setResultText] = useState<string | null>(null);
-  const [activatedNeurons, setActivatedNeurons] = useState<Set<string>>(new Set());
-  const [signalPulses, setSignalPulses] = useState<Array<{ id: string; x1: number; y1: number; x2: number; y2: number; color: string }>>([]);
-  const [step, setStep] = useState(0); // 0=idle, 1=input lit, 2+=propagating layers
+  const [visibleNeurons, setVisibleNeurons] = useState<Set<string>>(new Set());
+  const [activeConnectionIdx, setActiveConnectionIdx] = useState(-1); // which connection is currently being drawn
+  const [phase, setPhase] = useState<"idle" | "building" | "activating" | "result">("idle");
   
   const prevTrigger = useRef(0);
-  const animFrameRef = useRef<number>(0);
+  const cancelRef = useRef(false);
 
   const LAYER_LABELS = ["Input\n(features)", "Hidden 1", "Hidden 2", "Output\n(class)"];
 
@@ -89,155 +89,168 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
   }, [triggerForward]);
 
   const forwardPass = useCallback(() => {
+    cancelRef.current = false;
     setPropagating(true);
     setResultText(null);
-    setActivatedNeurons(new Set());
-    setSignalPulses([]);
-    setStep(0);
+    setVisibleNeurons(new Set());
+    setActiveConnectionIdx(-1);
+    setPhase("building");
+    setCurrentLayer(-1);
 
-    // Step 1: Light up input neurons one by one
+    // Reset network
     setNetwork(prev => ({
       ...prev,
       neurons: prev.neurons.map(n => ({ ...n, activation: 0 })),
-      connections: prev.connections.map(c => ({ ...c, active: false, signalProgress: 0 })),
+      connections: prev.connections.map(c => ({ ...c, active: false, drawn: false })),
     }));
 
-    // Animate input neurons appearing
+    // Phase 1: Show input neurons one by one
     const inputCount = featureNames.length;
     let inputIdx = 0;
 
-    const lightInputs = () => {
+    const showInputNeurons = () => {
+      if (cancelRef.current) return;
       if (inputIdx < inputCount) {
         const idx = inputIdx;
-        setActivatedNeurons(prev => new Set(prev).add(`0-${idx}`));
+        setVisibleNeurons(prev => new Set(prev).add(`0-${idx}`));
         setNetwork(prev => ({
           ...prev,
-          neurons: prev.neurons.map(n => {
-            if (n.layer === 0 && n.index === idx) {
-              return { ...n, activation: inputActivations[idx] || 0 };
-            }
-            return n;
-          }),
+          neurons: prev.neurons.map(n =>
+            n.layer === 0 && n.index === idx
+              ? { ...n, activation: inputActivations[idx] || 0 }
+              : n
+          ),
         }));
-        setStep(1);
         inputIdx++;
-        setTimeout(lightInputs, 120);
+        setTimeout(showInputNeurons, 100);
       } else {
-        // All inputs lit, start layer propagation
-        setTimeout(() => propagateLayerByLayer(1), 400);
+        // Phase 2: Draw connections layer by layer, connection by connection
+        setTimeout(() => drawConnectionsForLayer(1), 300);
       }
     };
 
-    setTimeout(lightInputs, 200);
+    setTimeout(showInputNeurons, 150);
   }, [propagating, inputActivations, network, categoryId, outputLabels, featureNames]);
 
-  const propagateLayerByLayer = useCallback((layer: number) => {
+  const drawConnectionsForLayer = useCallback((layer: number) => {
+    if (cancelRef.current) return;
     const { layers } = network;
 
     if (layer >= layers.length) {
-      // Final: bias the correct output
-      setNetwork(prev => {
-        const targetIdx = categoryId ? CATEGORY_OUTPUT_MAP[categoryId] : -1;
-        const updatedNeurons = prev.neurons.map(n => {
-          if (n.layer !== layers.length - 1) return n;
-          if (targetIdx >= 0 && n.index === targetIdx) {
-            return { ...n, activation: 0.85 + Math.random() * 0.14 };
-          }
-          if (targetIdx >= 0) {
-            return { ...n, activation: Math.random() * 0.3 };
-          }
-          return n;
-        });
-
-        const outputs = updatedNeurons.filter(n => n.layer === layers.length - 1);
-        const maxN = outputs.reduce((a, b) => a.activation > b.activation ? a : b);
-        const confidence = (maxN.activation * 100).toFixed(1);
-        const winnerLabel = outputLabels[maxN.index];
-
-        // Mark winner neuron
-        setActivatedNeurons(prev => {
-          const next = new Set(prev);
-          next.add(`winner-${maxN.id}`);
-          return next;
-        });
-
-        setResultText(
-          categoryId === "custom"
-            ? `Custom image → ${winnerLabel} — ${confidence}%`
-            : `Classified as ${winnerLabel} — ${confidence}%`
-        );
-
-        return { ...prev, neurons: updatedNeurons };
-      });
-
-      setPropagating(false);
-      setCurrentLayer(-1);
-      setStep(0);
+      // All layers drawn — now show result
+      finalizeResult();
       return;
     }
 
-    // Step: animate signals traveling along connections to this layer
     setCurrentLayer(layer);
-    setStep(layer + 1);
+    setPhase("activating");
 
-    // Phase 1: Show signal pulses traveling
+    // First show the target neurons for this layer
+    const targetNeurons = network.neurons.filter(n => n.layer === layer);
+    targetNeurons.forEach((n, i) => {
+      setTimeout(() => {
+        if (cancelRef.current) return;
+        setVisibleNeurons(prev => new Set(prev).add(n.id));
+      }, i * 60);
+    });
+
+    // Then draw connections one by one with staggered timing
     const neuronMap = new Map(network.neurons.map(n => [n.id, n]));
-    const layerConnections = network.connections
-      .filter(c => {
-        const toNeuron = neuronMap.get(c.to);
-        return toNeuron && toNeuron.layer === layer;
-      })
-      .map(c => {
-        const from = neuronMap.get(c.from)!;
-        const to = neuronMap.get(c.to)!;
-        return {
-          id: `${c.from}-${c.to}`,
-          x1: from.x, y1: from.y,
-          x2: to.x, y2: to.y,
-          color: c.weight > 0 ? "hsl(192 90% 55%)" : "hsl(280 70% 60%)",
-        };
-      });
+    const layerConns = network.connections.filter(c => {
+      const toN = neuronMap.get(c.to);
+      return toN && toN.layer === layer;
+    });
 
-    setSignalPulses(layerConnections);
+    // Draw connections in batches (groups of 3-4 for speed)
+    const batchSize = 4;
+    let batchIdx = 0;
 
-    // Phase 2: After signal travel, activate connections and compute neurons
-    setTimeout(() => {
-      setSignalPulses([]);
+    const drawBatch = () => {
+      if (cancelRef.current) return;
+      const start = batchIdx * batchSize;
+      const end = Math.min(start + batchSize, layerConns.length);
+      
+      if (start >= layerConns.length) {
+        // All connections for this layer drawn — compute activations
+        setTimeout(() => {
+          if (cancelRef.current) return;
+          computeLayerActivations(layer);
+          setTimeout(() => drawConnectionsForLayer(layer + 1), 400);
+        }, 200);
+        return;
+      }
 
-      setNetwork(prev => {
-        const map = new Map(prev.neurons.map(n => [n.id, n]));
-        const updatedNeurons = prev.neurons.map(n => {
-          if (n.layer !== layer) return n;
-          let sum = n.bias;
-          prev.connections.filter(c => c.to === n.id).forEach(c => {
-            const from = map.get(c.from);
-            if (from) sum += from.activation * c.weight;
-          });
-          return { ...n, activation: sigmoid(sum) };
-        });
+      // Draw this batch of connections
+      setNetwork(prev => ({
+        ...prev,
+        connections: prev.connections.map(c => {
+          const matchIdx = layerConns.findIndex(lc => lc.from === c.from && lc.to === c.to);
+          if (matchIdx >= start && matchIdx < end) {
+            return { ...c, drawn: true, active: true };
+          }
+          return c;
+        }),
+      }));
 
-        // Mark newly activated neurons
-        updatedNeurons.filter(n => n.layer === layer).forEach(n => {
-          setActivatedNeurons(prev => new Set(prev).add(n.id));
-        });
+      batchIdx++;
+      setTimeout(drawBatch, 50); // Fast but visible
+    };
 
-        return {
-          ...prev,
-          neurons: updatedNeurons,
-          connections: prev.connections.map(c => {
-            const toNeuron = updatedNeurons.find(n => n.id === c.to);
-            return {
-              ...c,
-              active: toNeuron?.layer === layer,
-              signalProgress: toNeuron?.layer === layer ? 1 : c.signalProgress,
-            };
-          }),
-        };
-      });
-
-      setTimeout(() => propagateLayerByLayer(layer + 1), 600);
-    }, 700);
+    // Start drawing after neurons appear
+    setTimeout(drawBatch, targetNeurons.length * 60 + 150);
   }, [network, categoryId, outputLabels]);
+
+  const computeLayerActivations = useCallback((layer: number) => {
+    setNetwork(prev => {
+      const map = new Map(prev.neurons.map(n => [n.id, n]));
+      const updatedNeurons = prev.neurons.map(n => {
+        if (n.layer !== layer) return n;
+        let sum = n.bias;
+        prev.connections.filter(c => c.to === n.id).forEach(c => {
+          const from = map.get(c.from);
+          if (from) sum += from.activation * c.weight;
+        });
+        return { ...n, activation: sigmoid(sum) };
+      });
+      return { ...prev, neurons: updatedNeurons };
+    });
+  }, []);
+
+  const finalizeResult = useCallback(() => {
+    if (cancelRef.current) return;
+    setPhase("result");
+    
+    setNetwork(prev => {
+      const targetIdx = categoryId ? CATEGORY_OUTPUT_MAP[categoryId] : -1;
+      const lastLayer = prev.layers.length - 1;
+      const updatedNeurons = prev.neurons.map(n => {
+        if (n.layer !== lastLayer) return n;
+        if (targetIdx >= 0 && n.index === targetIdx) {
+          return { ...n, activation: 0.85 + Math.random() * 0.14 };
+        }
+        if (targetIdx >= 0) {
+          return { ...n, activation: Math.random() * 0.3 };
+        }
+        return n;
+      });
+
+      const outputs = updatedNeurons.filter(n => n.layer === lastLayer);
+      const maxN = outputs.reduce((a, b) => a.activation > b.activation ? a : b);
+      const confidence = (maxN.activation * 100).toFixed(1);
+      const winnerLabel = outputLabels[maxN.index];
+
+      setResultText(
+        categoryId === "custom"
+          ? `Custom image → ${winnerLabel} — ${confidence}%`
+          : `Classified as ${winnerLabel} — ${confidence}%`
+      );
+
+      return { ...prev, neurons: updatedNeurons };
+    });
+
+    setPropagating(false);
+    setCurrentLayer(-1);
+  }, [categoryId, outputLabels]);
 
   const { neurons, connections } = network;
   const neuronMap = new Map(neurons.map(n => [n.id, n]));
@@ -257,13 +270,13 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
         {hasAnyInput && (
           <button onClick={forwardPass} disabled={propagating}
             className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-semibold text-xs disabled:opacity-50">
-            {propagating ? "Processing..." : "⚡ Re-run"}
+            {propagating ? "Building network..." : "⚡ Re-run"}
           </button>
         )}
       </div>
 
       <p className="text-[11px] text-muted-foreground mb-3">
-        ← Image features become <span className="text-primary font-semibold">input neurons</span>. The network classifies the pattern.
+        ← Image features become <span className="text-primary font-semibold">input neurons</span>. Watch the network form connection by connection.
       </p>
 
       {/* Result banner */}
@@ -284,7 +297,6 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
       <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden min-h-0 relative">
         <svg width="100%" height="100%" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="xMidYMid meet">
           <defs>
-            {/* Glow filters */}
             <filter id="glow-cyan" x="-50%" y="-50%" width="200%" height="200%">
               <feGaussianBlur stdDeviation="3" result="blur" />
               <feComposite in="SourceGraphic" in2="blur" operator="over" />
@@ -293,11 +305,6 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
               <feGaussianBlur stdDeviation="4" result="blur" />
               <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
-            {/* Signal pulse gradient */}
-            <radialGradient id="signal-dot">
-              <stop offset="0%" stopColor="hsl(192 90% 70%)" stopOpacity="1" />
-              <stop offset="100%" stopColor="hsl(192 90% 55%)" stopOpacity="0" />
-            </radialGradient>
           </defs>
 
           {/* Layer labels */}
@@ -317,65 +324,83 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
             );
           })}
 
-          {/* Connections */}
+          {/* Connections — only render drawn ones, with draw animation */}
           {connections.map((conn, i) => {
             const from = neuronMap.get(conn.from)!;
             const to = neuronMap.get(conn.to)!;
-            const isActive = conn.active;
+            if (!conn.drawn) return null;
+
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+
             return (
               <motion.line
-                key={i}
-                x1={from.x} y1={from.y} x2={to.x} y2={to.y}
-                stroke={isActive
-                  ? (conn.weight > 0 ? "hsl(192 90% 55%)" : "hsl(280 70% 60%)")
-                  : "hsl(220 14% 20%)"
-                }
-                strokeWidth={isActive ? Math.abs(conn.weight) * 2.5 + 0.5 : Math.abs(conn.weight) * 0.6 + 0.15}
-                initial={false}
-                animate={{
-                  strokeOpacity: isActive ? 0.85 : 0.08,
-                }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
+                key={`conn-${i}`}
+                x1={from.x} y1={from.y}
+                x2={to.x} y2={to.y}
+                stroke={conn.weight > 0 ? "hsl(192 90% 55%)" : "hsl(280 70% 60%)"}
+                strokeWidth={Math.abs(conn.weight) * 1.8 + 0.3}
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ pathLength: 1, opacity: conn.active ? 0.7 : 0.25 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                strokeDasharray={len}
+                strokeDashoffset={0}
               />
             );
           })}
 
-          {/* Traveling signal pulses */}
-          {signalPulses.map((pulse) => (
-            <motion.circle
-              key={pulse.id}
-              r={3}
-              fill={pulse.color}
-              filter="url(#glow-cyan)"
-              initial={{ cx: pulse.x1, cy: pulse.y1, opacity: 0.9 }}
-              animate={{ cx: pulse.x2, cy: pulse.y2, opacity: 0 }}
-              transition={{ duration: 0.6, ease: "easeInOut" }}
-            />
-          ))}
-
-          {/* Neurons */}
+          {/* Neurons — only render visible ones */}
           {neurons.map(n => {
+            const isVisible = visibleNeurons.has(n.id);
             const isInput = n.layer === 0;
             const isOutput = n.layer === network.layers.length - 1;
-            const isWinner = isOutput && n.activation === maxOutput && maxOutput > 0.1;
+            const isWinner = isOutput && n.activation === maxOutput && maxOutput > 0.1 && phase === "result";
             const r = 13;
             const hasValue = n.activation > 0.01;
-            const justActivated = activatedNeurons.has(n.id);
+
+            if (!isVisible && phase !== "idle") return (
+              <g key={n.id}>
+                {/* Ghost placeholder */}
+                <circle cx={n.x} cy={n.y} r={r}
+                  fill="none" stroke="hsl(220 14% 18%)" strokeWidth={1} strokeDasharray="3 3" opacity={0.3}
+                />
+              </g>
+            );
+
+            if (!isVisible && phase === "idle") return (
+              <g key={n.id}>
+                <circle cx={n.x} cy={n.y} r={r}
+                  fill="hsl(220 14% 14%)" stroke="hsl(220 14% 25%)" strokeWidth={1.5}
+                />
+                <text x={n.x} y={n.y + 3} textAnchor="middle" fill="hsl(210 20% 92%)" fontSize={7} fontFamily="JetBrains Mono">—</text>
+                {isInput && (
+                  <text x={n.x - 20} y={n.y + 3} textAnchor="end"
+                    fill="hsl(215 12% 35%)" fontSize={8} fontFamily="Space Grotesk" fontWeight={400}>
+                    {featureNames[n.index]}
+                  </text>
+                )}
+                {isOutput && (
+                  <text x={n.x + 20} y={n.y + 3} textAnchor="start"
+                    fill="hsl(215 12% 55%)" fontSize={9} fontFamily="Space Grotesk" fontWeight={400}>
+                    {outputLabels[n.index]}
+                  </text>
+                )}
+              </g>
+            );
 
             return (
               <g key={n.id}>
-                {/* Ripple effect on activation */}
-                {justActivated && hasValue && (
-                  <motion.circle
-                    cx={n.x} cy={n.y} r={r}
-                    fill="none"
-                    stroke={isWinner ? "hsl(150 70% 45%)" : isInput ? "hsl(192 90% 55%)" : "hsl(280 70% 60%)"}
-                    strokeWidth={2}
-                    initial={{ r: r, opacity: 0.8 }}
-                    animate={{ r: r + 12, opacity: 0 }}
-                    transition={{ duration: 0.8, ease: "easeOut" }}
-                  />
-                )}
+                {/* Ripple on appear */}
+                <motion.circle
+                  cx={n.x} cy={n.y}
+                  fill="none"
+                  stroke={isWinner ? "hsl(150 70% 45%)" : isInput ? "hsl(192 90% 55%)" : "hsl(280 70% 60%)"}
+                  strokeWidth={2}
+                  initial={{ r: r, opacity: 0.8 }}
+                  animate={{ r: r + 15, opacity: 0 }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                />
 
                 {/* Glow ring */}
                 {hasValue && (
@@ -389,7 +414,7 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
                   />
                 )}
 
-                {/* Main neuron circle */}
+                {/* Main neuron */}
                 <motion.circle
                   cx={n.x} cy={n.y} r={r}
                   fill={hasValue
@@ -402,19 +427,17 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
                   }
                   stroke={isWinner ? "hsl(150 70% 45%)" : currentLayer === n.layer ? "hsl(192 90% 55%)" : "hsl(220 14% 25%)"}
                   strokeWidth={isWinner ? 2.5 : 1.5}
-                  initial={false}
-                  animate={{
-                    scale: justActivated && hasValue ? [1, 1.15, 1] : 1,
-                  }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
                 />
 
-                {/* Value text */}
+                {/* Value */}
                 <text x={n.x} y={n.y + 3} textAnchor="middle" fill="hsl(210 20% 92%)" fontSize={7} fontFamily="JetBrains Mono">
                   {hasValue ? n.activation.toFixed(2) : "—"}
                 </text>
 
-                {/* Input labels */}
+                {/* Labels */}
                 {isInput && (
                   <text x={n.x - 20} y={n.y + 3} textAnchor="end"
                     fill={hasValue ? "hsl(192 90% 55%)" : "hsl(215 12% 35%)"} fontSize={8} fontFamily="Space Grotesk"
@@ -422,16 +445,14 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
                     {featureNames[n.index]}
                   </text>
                 )}
-
-                {/* Output labels */}
                 {isOutput && (
                   <motion.text
                     x={n.x + 20} y={n.y + 3} textAnchor="start"
                     fill={isWinner ? "hsl(150 70% 45%)" : "hsl(215 12% 55%)"} fontSize={9}
                     fontFamily="Space Grotesk" fontWeight={isWinner ? 700 : 400}
-                    initial={false}
-                    animate={{ scale: isWinner ? [1, 1.1, 1] : 1 }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1, scale: isWinner ? [1, 1.15, 1] : 1 }}
+                    transition={{ duration: 0.5 }}
                   >
                     {outputLabels[n.index]} {isWinner ? "✓" : ""}
                   </motion.text>
@@ -445,28 +466,24 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
           <div className="absolute inset-0 flex items-center justify-center bg-card/60 backdrop-blur-sm rounded-xl">
             <div className="text-center">
               <p className="text-muted-foreground text-sm">Select an image to begin</p>
-              <p className="text-muted-foreground text-xs mt-1">Image features will feed the network</p>
+              <p className="text-muted-foreground text-xs mt-1">Watch the neural network build itself</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Step indicator */}
+      {/* Phase indicator */}
       {propagating && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="mt-2 flex items-center gap-2"
         >
-          {LAYER_LABELS.map((label, i) => (
+          {LAYER_LABELS.map((_, i) => (
             <motion.div
               key={i}
               className={`flex-1 h-1.5 rounded-full transition-colors duration-300 ${
-                currentLayer >= i || (step > i + 1)
-                  ? "bg-primary"
-                  : currentLayer === i
-                    ? "bg-primary/60"
-                    : "bg-border"
+                currentLayer > i ? "bg-primary" : currentLayer === i ? "bg-primary/60" : "bg-border"
               }`}
               animate={currentLayer === i ? { opacity: [0.5, 1, 0.5] } : {}}
               transition={{ duration: 0.8, repeat: Infinity }}
