@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CATEGORY_IMAGES } from "@/data/categoryImages";
+import { CATEGORY_IMAGES, type CategoryImage } from "@/data/categoryImages";
 
 export interface Category {
   id: string;
@@ -13,11 +13,10 @@ const CATEGORIES: Category[] = [
   { id: "animal", label: "Animals", emoji: "🐾" },
   { id: "landscape", label: "Landscapes", emoji: "🌄" },
   { id: "fruit", label: "Fruits", emoji: "🍎" },
-  { id: "text", label: "Text", emoji: "📝" },
 ];
 
 interface Props {
-  onImageSelected: (imageUrl: string, categoryId: string) => void;
+  onImageSelected: (imageUrl: string, categoryId: string, imageLabel?: string) => void;
   selectedCategory: string | null;
   loading: boolean;
 }
@@ -32,9 +31,9 @@ export default function CategorySelector({ onImageSelected, selectedCategory, lo
     setSelectedImageUrl(null);
   };
 
-  const handleImageClick = (url: string) => {
-    setSelectedImageUrl(url);
-    onImageSelected(url, browsingCategory!);
+  const handleImageClick = (img: CategoryImage) => {
+    setSelectedImageUrl(img.url);
+    onImageSelected(img.url, browsingCategory!, img.label);
   };
 
   const handleBack = () => {
@@ -63,7 +62,7 @@ export default function CategorySelector({ onImageSelected, selectedCategory, lo
       <AnimatePresence mode="wait">
         {!browsingCategory ? (
           <motion.div key="categories" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="grid grid-cols-2 gap-2 mb-3">
               {CATEGORIES.map((cat) => (
                 <motion.button
                   key={cat.id}
@@ -107,24 +106,29 @@ export default function CategorySelector({ onImageSelected, selectedCategory, lo
             </p>
 
             <div className="grid grid-cols-3 gap-2 max-h-[420px] overflow-y-auto pr-1">
-              {images.map((url, i) => (
+              {images.map((img, i) => (
                 <motion.button
                   key={i}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => handleImageClick(url)}
-                  className={`rounded-xl overflow-hidden border-2 transition-all ${
-                    selectedImageUrl === url
+                  onClick={() => handleImageClick(img)}
+                  className={`rounded-xl overflow-hidden border-2 transition-all relative ${
+                    selectedImageUrl === img.url
                       ? "border-primary glow-primary"
                       : "border-border hover:border-primary/40"
                   }`}
                 >
                   <img
-                    src={url}
-                    alt={`${browsingCat?.label} sample ${i + 1}`}
+                    src={img.url}
+                    alt={img.label || `${browsingCat?.label} sample ${i + 1}`}
                     className="w-full h-20 object-cover"
                     loading="lazy"
                   />
+                  {img.label && (
+                    <span className="absolute bottom-0 inset-x-0 bg-background/80 text-[9px] font-semibold text-foreground py-0.5 text-center truncate">
+                      {img.label}
+                    </span>
+                  )}
                 </motion.button>
               ))}
             </div>
