@@ -24,6 +24,7 @@ interface Props {
   featureNames: string[];
   outputLabels: string[];
   categoryId: string | null;
+  imageLabel?: string;
 }
 
 const HIDDEN = [8, 6];
@@ -61,10 +62,10 @@ function buildNetwork(inputCount: number, outputCount: number) {
 
 // Map category to which output neuron should "win"
 const CATEGORY_OUTPUT_MAP: Record<string, number> = {
-  face: 0, animal: 1, landscape: 2, fruit: 3, text: 4, custom: -1,
+  face: 0, animal: 1, landscape: 2, fruit: 3, custom: -1,
 };
 
-export default function NeuralNetworkVisualization({ inputActivations, triggerForward, featureNames, outputLabels, categoryId }: Props) {
+export default function NeuralNetworkVisualization({ inputActivations, triggerForward, featureNames, outputLabels, categoryId, imageLabel }: Props) {
   const [network, setNetwork] = useState(() => buildNetwork(featureNames.length, outputLabels.length));
   const [currentLayer, setCurrentLayer] = useState(-1);
   const [propagating, setPropagating] = useState(false);
@@ -120,6 +121,8 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
 
           if (categoryId === "custom") {
             setResultText(`Custom image shows a ${winnerLabel} — ${confidence}% confidence`);
+          } else if (imageLabel) {
+            setResultText(`Classified as ${winnerLabel} — ${imageLabel} — ${confidence}% confidence`);
           } else {
             setResultText(`Classified as ${winnerLabel} — ${confidence}% confidence`);
           }
