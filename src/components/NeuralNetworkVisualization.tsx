@@ -70,6 +70,7 @@ export default function NeuralNetworkVisualization({ inputActivations, triggerFo
   const [currentLayer, setCurrentLayer] = useState(-1);
   const [propagating, setPropagating] = useState(false);
   const [resultText, setResultText] = useState<string | null>(null);
+  const [detailLabel, setDetailLabel] = useState<string | null>(null);
   const prevTrigger = useRef(0);
 
   const LAYER_LABELS = ["Input\n(features)", "Hidden 1", "Hidden 2", "Output\n(class)"];
