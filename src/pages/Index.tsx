@@ -5,7 +5,7 @@ import NeuralNetworkVisualization from "@/components/NeuralNetworkVisualization"
 import { motion } from "framer-motion";
 
 const FEATURE_NAMES = ["Edges", "Color", "Shape", "Texture", "Symmetry", "Frequency"];
-const OUTPUT_LABELS = ["Face 👤", "Animal 🐾", "Landscape 🌄", "Fruit 🍎", "Emotion 😊", "Text 📝"];
+const OUTPUT_LABELS = ["Face 👤", "Animal 🐾", "Landscape 🌄", "Fruit 🍎", "Text 📝"];
 
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
