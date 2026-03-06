@@ -84,6 +84,7 @@ const Index = () => {
               imageUrl={imageUrl}
               categoryId={selectedCategory}
               onFeaturesExtracted={handleFeaturesExtracted}
+              onReset={handleReset}
             />
           )}
         </div>
